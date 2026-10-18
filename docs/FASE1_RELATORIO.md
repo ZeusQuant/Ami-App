@@ -1,7 +1,7 @@
-# AMI CONNECT — Relatório da Fase 1 (RASCUNHO)
+# AMI CONNECT — Relatório da Fase 1
 
-Estado: **rascunho de 2026-10-18**. Está capturado só um estado do carro, e esse estado não foi registado:
-os valores do painel não foram fornecidos. Faltam as capturas com o carro em "Ready" e a carregar
+Estado: **concluída a 2026-10-18 e à espera da aprovação do utilizador.** Foram medidos dois estados: parado
+sem registo, e Ready com os valores do painel. O estado "a carregar" ficou por medir e é opcional
 (secção 9).
 
 Legenda:
@@ -16,13 +16,14 @@ Legenda:
 | O que é o dispositivo? | Periférico **só BLE**, com chip/stack **Nordic Semiconductor**, Bluetooth 4.2, com o nome anunciado "R5118926". Não expõe o serviço Device Information. HIPÓTESE: é o dongle Bluetooth oficial do Ami, que o EVCC descreve na porta OBD a trabalhar com a app da Citroën (`mreschka/Citroen-AMI-evcc-Connector`, `README.md:38`, "AMI-Bluetooth-Dongle"). Fabricante e modelo por confirmar. |
 | Que protocolo usa? | GATT com **um único serviço próprio** e **uma única característica WRITE + INDICATE**. A forma é a de um canal de pedido/resposta (HIPÓTESE). O protocolo da aplicação é desconhecido. |
 | Aberto ou encriptado? | A ligação BLE **não pede emparelhamento nem encriptação** (OBSERVADO). Não se sabe se a camada da aplicação é encriptada, porque não chega nenhum dado para analisar. |
-| Que dados chegam sem pedir nada? | Só os **anúncios**: Service Data `0x27D5` com dois conteúdos que alternam e não mudaram em 75 min. Nas indicações chegaram **0 mensagens em 120 s**. |
+| Que dados chegam sem pedir nada? | Só os **anúncios**: Service Data `0x27D5` com dois conteúdos que alternam. Foram iguais das 14:43 às 16:24, também em Ready, e **não levam os valores do painel**. Nas indicações chegaram **0 mensagens em 120 s**. |
 | Bate com `docs/CAN_REFERENCIA.md`? | **Não.** Nenhum dado observado contém IDs CAN (0x580, 0x581, 0x582, 0x593, 0x594, 0x713, 0x714) nem valores reconhecíveis. |
-| A MyCitroën usa o dispositivo? | **Hoje não.** A MyCitroën só se ligou a um botão Flic (o utilizador confirmou) e nunca ao R5118926 (secção 7). Não se sabe se o faz noutras condições, por exemplo com o carro ligado ou noutro ecrã da app. |
+| A MyCitroën usa o dispositivo? | **Não**, nem com o carro em Ready e a app aberta no ecrã do Ami (16:25–16:27). A única pesquisa BLE da app hoje foi filtrada pelo serviço do botão Flic, e a app nunca se ligou ao R5118926 (secção 7). |
 
-Conclusão provisória: **o R5118926 não entrega dados do carro de forma passiva.** Para tirar dados dele
-seria preciso escrever comandos de um protocolo desconhecido na característica 0x2701. As regras do projeto
-(`CLAUDE.md`) não o permitem. A alternativa está na secção 8.
+Conclusão: **o R5118926 não entrega dados do carro de forma passiva, e nenhuma app no telemóvel o usa.**
+Para tirar dados dele seria preciso escrever comandos de um protocolo desconhecido na característica 0x2701.
+As regras do projeto (`CLAUDE.md`) não o permitem. Como as regras mandam para um dispositivo fechado, a
+descoberta pára aqui e propõe-se a alternativa da secção 8: um adaptador CAN em modo de escuta.
 
 ## 2. Ambiente
 
@@ -31,7 +32,7 @@ seria preciso escrever comandos de um protocolo desconhecido na característica 
 | Data | 2026-10-18, entre as 14:28 e as 16:06 (hora local) |
 | Mac | MacBook Air (Mac17,3), macOS 26.5.1, Bluetooth Apple N1; Python 3.14.7 e bleak 3.0.2 no `.venv` |
 | Telemóvel | Samsung SM-S938B, Android 16 (API 36); nRF Connect 4.29.1; MyCitroën 1.55.1 |
-| Estado do carro | **não registado** (parado; painel não fornecido) |
+| Estado do carro | 15:57: parado, estado não registado. 16:23: **Ready**, parado, travão de mão puxado, N (autonomia 74 km, 1279 km) |
 | Ferramentas | `tools/ble_discover.py` (scan/watch/dump/listen); `tools/snooz_extract.py` (resumo HCI do `dumpsys`) |
 
 Nota sobre o macOS: o Bluetooth não funciona a partir do shell do Claude Code, porque o processo responsável
@@ -62,7 +63,11 @@ painel Terminal da app Claude.
 | A (longo) | `02 01 06` `0b 16 d5 27 95 88 9b 1f 88 01 8f f2` `09 09 52 35 31 31 38 39 32 36` | mediana 0,89 s |
 | B (curto) | `02 01 06` `05 16 d5 27 01 00` `09 09 52 35 31 31 38 39 32 36` | mediana 0,27 s |
 
-- O conteúdo A foi **idêntico** às 14:43 (telemóvel) e às 15:57 (Mac).
+- O conteúdo A foi **idêntico** às 14:43 (telemóvel), às 15:57 (Mac, estado não registado) e às 16:23 com o
+  carro em **Ready** (Mac, 502 anúncios: 395 A + 107 B).
+  - Painel às 16:24: autonomia 74 km, 0 km/h, 1279 km, mudança N. O painel não mostra a bateria em %.
+  - Nenhum destes valores aparece no Service Data: 74 = `0x4A`; 1279 = `0x04FF`, ou `0x31F6` em décimas
+    de km. **O anúncio não depende do estado do carro** (OBSERVADO entre os dois estados medidos).
 - **Variantes passageiras**:
   - 14:43:52 (telemóvel): `ff ff ff ff ff ff ff f8` → `ff f8 9b 1f ff ff ff f8` → `95 88 9b 1f f8 01 8f f2` → A.
   - 15:57:31–34 (Mac): 19 anúncios como `01 a8 03 1f 88 01 8f f2`, `95 88 03 1f …` e `95 88 93 1f …`, e depois A.
@@ -94,9 +99,16 @@ painel Terminal da app Claude.
 - A **MyCitroën** registou um cliente GATT só para um **botão Flic** ("Flic BH25-…", chip Nordic, BT 5.1),
   com o qual se emparelhou e desemparelhou às 14:35–14:37. O utilizador confirmou que o botão serve para
   controlar a MyCitroën.
-- Consequência: a utilização de hoje da MyCitroën **não revela** o protocolo do R5118926. Só valerá a pena
-  um HCI snoop log se a MyCitroën se ligar ao R5118926 noutras condições, por exemplo com o carro em Ready.
-  Nesse caso, o log mostraria os comandos que a app escreve na 0x2701 e se vão encriptados.
+- **Teste em Ready (16:25–16:27):** com o carro em Ready, o utilizador abriu a MyCitroën no ecrã do Ami.
+  O `dumpsys` das 16:27 não mostra nenhuma ligação GATT nova desde as 15:05, nem nenhuma pesquisa BLE nova
+  da MyCitroën.
+  - A única pesquisa BLE da MyCitroën hoje foi às 14:35:28, com filtro
+    `ServiceUuid=00420000-8f59-4420-870d-84f3b617e493`, e deu 1 resultado: o botão Flic, a que a app se
+    ligou a seguir.
+  - O stack do Android confirma o R5118926 como `RANDOM_DEVICE_ADDRESS(0x01)`.
+- Consequência: a MyCitroën (1.55.1) **não usa** o R5118926 neste telemóvel, por isso um HCI snoop log da
+  app não revelaria o protocolo. HIPÓTESE: os dados do Ami que a app mostra, se mostrar algum, vêm da
+  cloud ou doutra via.
 - O HCI snoop log está **desligado** no telemóvel. O resumo em memória do `dumpsys` tem só eventos HCI
   (sem ACL), por isso não mostra tráfego GATT.
 
@@ -118,14 +130,14 @@ painel Terminal da app Claude.
 
 ## 9. Limitações e o que falta para fechar a Fase 1
 
-1. **Valores do painel e estado do carro** não registados. Sem eles nada pode passar a CONFIRMADO.
-2. **Repetir o `watch`** com o carro em "Ready" (parado, travão puxado) e, se possível, a carregar. É a única
-   forma passiva de ver se o Service Data `0x27D5` muda com o estado do carro.
+1. **Valores do painel:** só há um registo (Ready, 16:24). Nada passou a CONFIRMADO, porque o dongle não dá
+   nenhum valor que se possa comparar.
+2. **`watch` em Ready:** feito às 16:23 e o anúncio ficou igual. Falta o estado "a carregar", que é
+   opcional, porque nada indica que o anúncio leve dados.
 3. **Identificar o produto:** etiqueta ou fotografia do dongle, origem (veio com o carro, concessionário,
    outro), app ou documentação associada. Se o fabricante publicar o protocolo, a decisão de o usar volta
    para o utilizador.
-4. **Ver se a MyCitroën usa o dongle com o carro em Ready.** Se o `dumpsys` mostrar uma ligação da
-   MyCitroën ao `FA:24:AC:xx:xx:32`, repetir com o HCI snoop log ativo (só leitura) para ver o protocolo.
+4. **A MyCitroën com o carro em Ready:** verificado. Não se liga ao dongle (secção 7).
 5. A nota ELM327/Classic (Fase 1, passo 4) **não se aplica**: o dispositivo é só BLE e não tem serial-over-BLE.
 
 ## 10. Anexos (em `logs/`, fora do git)
@@ -135,6 +147,10 @@ painel Terminal da app Claude.
 | `fase0_20261018_dumpsys_bluetooth_manager.txt` | `dumpsys bluetooth_manager` do telemóvel (15:50) |
 | `fase0_20261018_snooz_R5118926.jsonl` | anúncios e eventos de ligação do R5118926 extraídos do resumo HCI (`tools/snooz_extract.py`) |
 | `ami_ble_20261018_155548.jsonl`, `…_155630.jsonl` | `scan` de 10 s no Mac; o segundo já inclui o Service Data |
-| `ami_ble_20261018_155723.jsonl` | `watch R5118926 60`: 489 anúncios |
+| `ami_ble_20261018_155723.jsonl` | `watch R5118926 60`: 489 anúncios (estado não registado) |
+| `ami_ble_20261018_162351.jsonl` | `watch R5118926 60` em Ready: 502 anúncios |
+| `painel.jsonl` | valores do painel lidos pelo utilizador, com hora |
+| `fase1_20261018_162700_dumpsys_bluetooth_manager.txt` | `dumpsys` depois de abrir a MyCitroën em Ready |
+| `fase1_20261018_162700_snooz_R5118926.jsonl` | resumo HCI (14:43–16:27) do R5118926 |
 | `ami_ble_20261018_155926.jsonl` | `dump`: serviços e características |
 | `ami_ble_20261018_160425.jsonl` | `listen` de 120 s: subscrição, 0 indicações |
