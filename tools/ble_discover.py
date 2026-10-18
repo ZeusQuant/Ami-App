@@ -5,8 +5,9 @@ Só faz: scan, enumeração GATT, leitura de características 'read' e subscriç
 de características 'notify'/'indicate'. NUNCA escreve em nenhuma característica.
 Tudo é gravado em JSONL com timestamps.
 
-Uso:
-  pip install bleak
+Uso (macOS: o bleak instala-se com pip num ambiente virtual, não com brew):
+  python3 -m venv .venv && source .venv/bin/activate
+  pip install -r tools/requirements.txt
   python3 ble_discover.py scan                      # lista dispositivos BLE
   python3 ble_discover.py dump  <MAC|UUID>          # serviços/características + leituras
   python3 ble_discover.py listen <MAC|UUID> [segundos]  # subscreve notify e grava
