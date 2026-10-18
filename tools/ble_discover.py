@@ -13,9 +13,12 @@ Uso (macOS: o bleak instala-se com pip num ambiente virtual, não com brew):
   python3 ble_discover.py listen <MAC|UUID> [segundos]  # subscreve notify e grava
 """
 import asyncio, json, sys, time
+from pathlib import Path
 from bleak import BleakClient, BleakScanner
 
-LOG = f"ami_ble_{time.strftime('%Y%m%d_%H%M%S')}.jsonl"
+LOG_DIR = Path(__file__).resolve().parent.parent / "logs"  # ignorado pelo git (pode conter o VIN)
+LOG_DIR.mkdir(exist_ok=True)
+LOG = LOG_DIR / f"ami_ble_{time.strftime('%Y%m%d_%H%M%S')}.jsonl"
 
 def log(event, **kw):
     rec = {"ts": time.time(), "iso": time.strftime("%Y-%m-%dT%H:%M:%S"), "event": event, **kw}

@@ -1,0 +1,9 @@
+# Logs brutos do dispositivo: podem conter o VIN (repositório público).
+# Só entram no git com autorização explícita (git add -f).
+logs/
+ami_ble_*.jsonl
+
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
