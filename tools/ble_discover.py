@@ -9,6 +9,7 @@ Uso (macOS: o bleak instala-se com pip num ambiente virtual, não com brew):
   python3 -m venv .venv && source .venv/bin/activate
   pip install -r tools/requirements.txt
   python3 ble_discover.py scan                      # lista dispositivos BLE
+  python3 ble_discover.py watch <nome> [segundos]   # grava cada anúncio desse dispositivo (sem ligar)
   python3 ble_discover.py dump  <MAC|UUID>          # serviços/características + leituras
   python3 ble_discover.py listen <MAC|UUID> [segundos]  # subscreve notify e grava
 """
@@ -26,12 +27,23 @@ def log(event, **kw):
         f.write(json.dumps(rec) + "\n")
     print(json.dumps(rec))
 
+def adv_fields(adv):
+    return dict(rssi=adv.rssi, tx_power=adv.tx_power, service_uuids=adv.service_uuids,
+                service_data={k: v.hex() for k, v in adv.service_data.items()},
+                manufacturer_data={str(k): v.hex() for k, v in adv.manufacturer_data.items()})
+
 async def scan():
     found = await BleakScanner.discover(timeout=10.0, return_adv=True)
     for addr, (dev, adv) in found.items():
-        log("device", address=addr, name=dev.name or adv.local_name, rssi=adv.rssi,
-            service_uuids=adv.service_uuids,
-            manufacturer_data={str(k): v.hex() for k, v in adv.manufacturer_data.items()})
+        log("device", address=addr, name=dev.name or adv.local_name, **adv_fields(adv))
+
+async def watch(name, secs):
+    """Só escuta anúncios: grava cada anúncio do dispositivo com este nome (sem ligar)."""
+    def cb(dev, adv):
+        if (dev.name or adv.local_name) == name:
+            log("adv", address=dev.address, name=name, **adv_fields(adv))
+    async with BleakScanner(detection_callback=cb):
+        await asyncio.sleep(secs)
 
 async def dump(addr):
     async with BleakClient(addr) as c:
@@ -67,6 +79,7 @@ async def listen(addr, secs):
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "scan"
     if cmd == "scan": asyncio.run(scan())
+    elif cmd == "watch": asyncio.run(watch(sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 60))
     elif cmd == "dump": asyncio.run(dump(sys.argv[2]))
     elif cmd == "listen": asyncio.run(listen(sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 120))
     print(f"log: {LOG}")
